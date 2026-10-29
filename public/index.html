@@ -1,0 +1,1069 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vibring</title>
+<meta name="referrer" content="no-referrer">
+<link rel="preload" href="/fonts/recursive-latin.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face {
+  font-family: 'Recursive';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url(/fonts/recursive-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Recursive';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url(/fonts/recursive-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root{
+  --ink:#012F19;          /* deep green: borders, buttons, header block */
+  --ground:#F3F9F8;       /* page */
+  --wash:#F0F6F5;         /* covered cards */
+  --edge:#BACAC6;         /* covered card borders */
+  --name:#2F6B52;         /* volunteer names */
+  --muted:#566459;        /* covered card text */
+  --note:#4a564d;         /* host notes, guest notes */
+  --absent:#69726C;       /* "No one yet", footer mark — 4.55:1 min */
+  --rule:#E9F1EE;
+  --on-ink:#F4FAF7;       /* text inside the header block */
+  --hover:#FBFEFD;        /* card hover */
+  --hover-name:#EFF5F2;   /* chef-name hover */
+  --divider:#CBDCD8;      /* the rule above "Already covered" */
+  --underline:rgba(47,107,82,.35);  /* chef-name underline */
+  --scrim:rgba(1,47,25,.4);         /* behind an open sheet */
+  --danger:#a33a26;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--ground);
+  color:var(--ink);
+  font-family:Recursive,system-ui,-apple-system,sans-serif;
+  font-variation-settings:'CASL' 0.45,'MONO' 0;
+  font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:34rem;margin:0 auto;padding:1.5rem 1.15rem 4rem}
+body.plain{background:#fff}
+
+/* ---- header block ---- */
+.head{background:var(--ink);color:#fff;border-radius:20px 12px 18px 14px/14px 18px 12px 20px;
+  padding:1.1rem 1.15rem .95rem;margin-bottom:1rem}
+.head h1{font-size:1.85rem;font-weight:800;line-height:1.02;margin:0 0 .75rem;letter-spacing:-.8px;
+  text-align:center;font-variation-settings:'CASL' 0.85,'MONO' 0}
+.row{display:flex;gap:.5rem;align-items:flex-start;margin-top:.45rem;color:var(--on-ink);
+  font-size:.82rem;font-weight:600;line-height:1.4}
+.row svg{flex:none;width:15px;height:15px;margin-top:1px;stroke:var(--on-ink);stroke-width:1.9;
+  fill:none;stroke-linecap:round;stroke-linejoin:round;opacity:.85}
+.row.note{font-weight:500}
+.summary{display:flex;align-items:center;gap:.45rem;margin-top:.8rem;font-size:.82rem;font-weight:800;color:#fff}
+.summary.all{font-weight:500}
+.summary svg{flex:none;width:15px;height:15px;stroke:#fff;stroke-width:1.9;fill:none;
+  stroke-linecap:round;stroke-linejoin:round;opacity:.9}
+.chip{background:var(--ground);color:var(--ink);font-size:.82rem;font-weight:500;line-height:1;
+  min-width:20px;text-align:center;padding:3.5px 5px;border-radius:4px;
+  font-variation-settings:'CASL' 0.2,'MONO' 1}
+
+/* ---- items ---- */
+.list{list-style:none;margin:0;padding:0}
+.item{position:relative;border:4px solid var(--ink);background:#fff;padding:.75rem .95rem .85rem;
+  margin-bottom:.75rem;box-shadow:4px 4px 0 var(--ink);cursor:pointer;
+  border-radius:18px 11px 16px 13px/13px 16px 11px 18px}
+.item:nth-child(3n+2){border-radius:12px 19px 11px 17px/17px 11px 19px 12px}
+.item:nth-child(3n){border-radius:16px 13px 19px 10px/10px 19px 13px 16px}
+.item:hover{background:var(--hover)}
+.head-row{display:flex;align-items:center;gap:.6rem}
+.name{font-size:1.25rem;font-weight:700;flex:1;line-height:1.2;letter-spacing:-.3px;word-break:break-word;
+  font-variation-settings:'CASL' 0.8,'MONO' 0}
+.count{font-size:.82rem;font-weight:500;line-height:1;white-space:nowrap;padding:4px 8px;border-radius:6px;
+  border:2px solid var(--ink);background:var(--ground);color:var(--ink);
+  font-variation-settings:'CASL' 0.25,'MONO' 0}
+.count.zero{background:var(--ink);color:#fff}
+.count.covered{border:0;background:none;color:var(--muted);font-weight:600;padding:0}
+.hostnote{font-size:.85rem;color:var(--note);margin-top:.35rem;line-height:1.45;
+  font-variation-settings:'CASL' 0.25,'MONO' 0}
+.sigs{margin-top:.5rem}
+.sig+.sig{margin-top:.2rem}
+.claim{display:inline-block;text-align:left;background:none;border:0;padding:.45rem .3rem;margin:-.3rem -.3rem -.25rem;
+  cursor:pointer;
+  font:inherit;font-size:.92rem;font-weight:700;color:var(--name);border-radius:6px;
+  text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:3px;
+  text-decoration-color:var(--underline);font-variation-settings:'CASL' 1,'MONO' 0}
+.claim:hover{text-decoration-color:var(--name);background:var(--hover-name)}
+.claim:before{content:"→ ";opacity:.75;text-decoration:none}
+.sig .note{display:block;font-size:.82rem;font-weight:400;color:var(--note);line-height:1.4;
+  margin-top:1px;padding-left:1.25rem;font-variation-settings:'CASL' 0.25,'MONO' 0}
+span.claim{cursor:default;text-decoration:none}
+.absent{margin-top:.5rem;font-size:.82rem;font-weight:500;color:var(--absent);
+  font-variation-settings:'CASL' 0.3,'MONO' 0}
+.tap{display:flex;align-items:center;justify-content:space-between;margin-top:.75rem;padding-top:.55rem;
+  border-top:2px solid var(--rule);font-size:.85rem;font-weight:700;color:var(--ink);
+  font-variation-settings:'CASL' 0.45,'MONO' 0}
+.tap svg{width:16px;height:16px;stroke:var(--ink);stroke-width:2.6;fill:none;
+  stroke-linecap:round;stroke-linejoin:round;opacity:.9}
+.item.done{background:var(--wash);border-color:var(--edge);box-shadow:none}
+.item.done .name,.item.done .hostnote,.item.done .claim .note{color:var(--muted)}
+.item.done .claim{color:var(--muted)}
+.grp{font-size:1rem;font-weight:700;margin:.9rem 0 .75rem .1rem;padding-top:1.25rem;
+  border-top:2px solid var(--divider);font-variation-settings:'CASL' 0.25,'MONO' 0}
+
+/* ---- buttons, forms, sheets ---- */
+button{font:inherit}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;border-radius:11px;
+  border:2.5px solid var(--ink);background:var(--ink);color:#fff;padding:.55rem 1.05rem;font-weight:700;
+  cursor:pointer;min-height:44px;font-variation-settings:'CASL' 0.6,'MONO' 0}
+.btn.ghost{background:#fff;color:var(--ink)}
+.btn.quiet{background:#fff;border-color:var(--rule);color:var(--note)}
+.btn.danger{background:#fff;border-color:var(--rule);color:var(--danger)}
+.btn.wide{width:100%}
+.btn.small{padding:.4rem .85rem;min-height:38px;font-size:.9rem}
+.btn:disabled{opacity:.5;cursor:default}
+.row-btns{display:flex;gap:.5rem;flex-wrap:wrap}
+label{display:block;font-size:.85rem;color:var(--note);margin-bottom:.25rem;font-weight:600}
+input,textarea{width:100%;font:inherit;color:var(--ink);background:#fff;border:2.5px solid var(--ink);
+  border-radius:11px;padding:.6rem .7rem;min-height:44px}
+textarea{min-height:76px;resize:vertical;line-height:1.45}
+input:focus,textarea:focus,button:focus-visible,.claim:focus-visible,.item:focus-visible{
+  outline:2px solid var(--ink);outline-offset:2px}
+.field+.field,.pair+.field{margin-top:.8rem}
+.pair{display:flex;gap:.6rem}
+.pair .field{margin-top:0}
+.pair .field.qty{width:6.5rem;flex:none}
+.scrim{position:fixed;inset:0;background:var(--scrim);display:flex;align-items:flex-end;
+  justify-content:center;z-index:20}
+.sheet{background:#fff;width:100%;max-width:34rem;border:4px solid var(--ink);border-bottom:0;
+  border-radius:18px 18px 0 0;padding:1.2rem 1.15rem calc(1.2rem + env(safe-area-inset-bottom));
+  max-height:88vh;overflow:auto}
+.sheet h2{font-size:1.25rem;font-weight:700;margin:0 0 .9rem;font-variation-settings:'CASL' 0.8,'MONO' 0}
+@media (min-width:36rem){.scrim{align-items:center}.sheet{border-radius:18px;border-bottom:4px solid var(--ink)}}
+@media (prefers-reduced-motion:no-preference){
+  .sheet{animation:rise .18s ease-out}
+  @keyframes rise{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+}
+
+/* ---- host chrome ---- */
+.bar-top{display:flex;justify-content:space-between;align-items:center;gap:.75rem;margin-bottom:1rem}
+h1{font-size:1.75rem;font-weight:800;letter-spacing:-.6px;margin:0;
+  font-variation-settings:'CASL' 0.85,'MONO' 0}
+h2{font-size:1.15rem;font-weight:700;margin:0;font-variation-settings:'CASL' 0.6,'MONO' 0}
+.card{display:block;border:4px solid var(--ink);background:#fff;box-shadow:4px 4px 0 var(--ink);
+  border-radius:18px 11px 16px 13px/13px 16px 11px 18px;padding:.85rem .95rem;margin-bottom:.75rem;
+  text-decoration:none;color:inherit}
+.card.archived{background:var(--wash);border-color:var(--edge);box-shadow:none}
+.share{background:#fff;border:2.5px solid var(--ink);border-radius:12px;padding:.8rem .9rem;margin-bottom:1.1rem}
+.share code{display:block;word-break:break-all;font-size:.8rem;margin:.35rem 0 .6rem;
+  font-variation-settings:'CASL' 0.2,'MONO' 1}
+.empty{border:2.5px dashed var(--edge);border-radius:12px;padding:1.4rem;text-align:center;color:var(--note)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:1.25rem;background:var(--ink);color:#fff;
+  padding:.6rem 1rem;border-radius:11px;font-size:.9rem;z-index:40;max-width:90vw}
+.warn{background:var(--wash);border-left:4px solid var(--ink);padding:.7rem .9rem;
+  border-radius:0 10px 10px 0;font-size:.9rem}
+
+/* ---- dish line under a chef ---- */
+.dish{display:block;font-size:.95rem;font-weight:600;color:var(--ink);line-height:1.3;
+  font-variation-settings:'CASL' 0.45,'MONO' 0}
+.meta-line{display:block;font-size:.8rem;font-weight:500;color:var(--note);line-height:1.4;
+  margin-top:1px;font-variation-settings:'CASL' 0.25,'MONO' 0}
+label .sub{font-weight:400}
+
+/* ---- hot / cold ---- */
+.choice{display:flex;gap:.5rem}
+.choice button{flex:1;min-height:48px;border:2.5px solid var(--ink);background:#fff;color:var(--ink);
+  border-radius:11px;font-weight:700;font-size:.95rem;cursor:pointer;
+  font-variation-settings:'CASL' 0.5,'MONO' 0}
+.choice button[aria-pressed="true"]{background:var(--ink);color:#fff}
+
+/* ---- host-only notes ---- */
+.notes{border:4px solid var(--ink);background:#fff;box-shadow:4px 4px 0 var(--ink);
+  border-radius:16px 13px 19px 10px/10px 19px 13px 16px;padding:.85rem .95rem;margin-bottom:1rem}
+.notes-top{display:flex;align-items:center;gap:.6rem}
+.notes-top b{flex:1;font-size:1.05rem;font-weight:700;font-variation-settings:'CASL' 0.7,'MONO' 0}
+.notes-count{font-size:.8rem;font-weight:500;line-height:1;padding:4px 8px;border-radius:6px;
+  background:var(--ink);color:#fff;font-variation-settings:'CASL' 0.25,'MONO' 0}
+.note-item{padding:.6rem 0;border-bottom:1px solid var(--rule)}
+.note-item:last-of-type{border-bottom:0;padding-bottom:.2rem}
+.note-from{font-size:.82rem;font-weight:700;color:var(--name);
+  font-variation-settings:'CASL' 0.9,'MONO' 0}
+.note-from span{font-weight:500;color:var(--note);font-variation-settings:'CASL' 0.25,'MONO' 0}
+.note-body{font-size:.88rem;color:var(--note);line-height:1.45;margin-top:2px}
+.notes-foot{margin-top:.7rem;padding-top:.6rem;border-top:2px solid var(--rule)}
+
+/* ---- theme picker ---- */
+.picker{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
+.swatch{position:relative;padding:6px;border:2.5px solid var(--edge);border-radius:12px;
+  cursor:pointer;overflow:hidden;text-align:left;font:inherit;min-height:44px}
+.swatch[aria-pressed="true"]{border-width:4px}
+.swatch .bar{display:flex;align-items:center;justify-content:space-between;
+  border-radius:6px 4px 6px 5px/5px 6px 4px 6px;padding:4px 6px;margin-bottom:5px}
+.swatch .bar b{font-size:10px;font-weight:800;letter-spacing:-.2px;color:#fff;
+  font-variation-settings:'CASL' 0.85,'MONO' 0}
+.swatch .bar i{font-size:8px;font-weight:700;font-style:normal;border-radius:3px;padding:1.5px 4px}
+.swatch .card{display:flex;align-items:baseline;gap:5px;border-width:2px;border-style:solid;
+  background:#fff;border-radius:6px 4px 6px 5px/5px 6px 4px 6px;padding:4px 6px;
+  box-shadow:2px 2px 0 currentColor}
+.swatch .card em{font-size:9.5px;font-weight:700;font-style:normal;line-height:1.2;
+  font-variation-settings:'CASL' 0.8,'MONO' 0}
+.swatch .card u{font-size:9px;font-weight:700;text-decoration:underline;text-underline-offset:2px;
+  margin-left:auto;font-variation-settings:'CASL' 1,'MONO' 0}
+.swatch .tick{position:absolute;right:6px;bottom:6px;width:17px;height:17px;border-radius:50%;
+  display:none;align-items:center;justify-content:center}
+.swatch[aria-pressed="true"] .tick{display:flex}
+.swatch .tick svg{width:9px;height:9px;stroke-width:3.2;fill:none;stroke-linecap:round;
+  stroke-linejoin:round}
+
+.muted{color:var(--note)}
+.tiny{font-size:.85rem}
+.stack>*+*{margin-top:.9rem}
+.lede{font-size:1.05rem;color:var(--note);max-width:30rem}
+.wordmark{display:flex;align-items:center;gap:.5rem;font-size:2.6rem;font-weight:800;
+  letter-spacing:-1.4px;margin:.5rem 0 0;font-variation-settings:'CASL' 0.9,'MONO' 0}
+.basket{flex:none;width:3.1rem;height:3.1rem;stroke:var(--ink);stroke-width:2.3;fill:none;
+  stroke-linecap:round;stroke-linejoin:round}
+.slogan{font-size:1.15rem;font-weight:600;color:var(--name);margin:.35rem 0 1.4rem;
+  font-variation-settings:'CASL' 0.6,'MONO' 0}
+.mark{display:block;text-align:center;margin-top:2rem;font-size:.75rem;font-weight:600;
+  letter-spacing:.4px;color:var(--absent);font-variation-settings:'CASL' 0.5,'MONO' 0}
+
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div id="modal"></div>
+
+<script>
+// ---- Deploying under a subfolder? Set BASE to that path, e.g. "/potluck".
+// Leave it "" when the app is at the domain root. See README for the other
+// three files that need the same prefix.
+const BASE = "";
+
+// Nine themes, each derived from one hue by the formula in the README:
+// deep tier ink at L*16 C*24; burnt orange is the one mid-tier theme at
+// L*40 C*68. All clear WCAG AA on every checked pair. Do not hand-edit a
+// value — regenerate the set so the relationships hold.
+const THEMES = {
+  forest: { label: "Forest", t: { "ink":"#012F19", "ground":"#F4F9F6", "wash":"#F1F6F3", "edge":"#BEC9C1", "name":"#446C53", "muted":"#59665D", "note":"#4F5A53", "absent":"#69726C", "rule":"#E9EFEB", "on-ink":"#EDF6F0", "hover":"#FAFDFB", "hover-name":"#ECF6EF", "divider":"#D0DDD4", "underline":"rgba(68,108,83,.35)", "scrim":"rgba(1,47,25,.4)", "danger":"#a33a26" } },
+  teal: { label: "Teal", t: { "ink":"#003030", "ground":"#F3F9F9", "wash":"#EFF6F6", "edge":"#B9CAC9", "name":"#2A6D6C", "muted":"#536766", "note":"#4B5A59", "absent":"#657271", "rule":"#E7F0EF", "on-ink":"#EAF6F5", "hover":"#F9FDFD", "hover-name":"#E8F6F6", "divider":"#CADEDD", "underline":"rgba(42,109,108,.35)", "scrim":"rgba(0,48,48,.4)", "danger":"#a33a26" } },
+  ocean: { label: "Ocean", t: { "ink":"#002B4A", "ground":"#F5F8FC", "wash":"#F2F5FA", "edge":"#C0C7D1", "name":"#466687", "muted":"#5B6470", "note":"#515861", "absent":"#6A7078", "rule":"#EAEEF3", "on-ink":"#EFF4FB", "hover":"#FAFCFF", "hover-name":"#EEF4FD", "divider":"#D2DBE7", "underline":"rgba(70,102,135,.35)", "scrim":"rgba(0,43,74,.4)", "danger":"#a33a26" } },
+  indigo: { label: "Indigo", t: { "ink":"#1E2648", "ground":"#F7F7FC", "wash":"#F4F5FA", "edge":"#C5C6D1", "name":"#5D6185", "muted":"#62626F", "note":"#565660", "absent":"#6F6F77", "rule":"#EDEDF3", "on-ink":"#F3F3FB", "hover":"#FCFCFF", "hover-name":"#F3F3FD", "divider":"#D9D9E6", "underline":"rgba(93,97,133,.35)", "scrim":"rgba(30,38,72,.4)", "danger":"#a33a26" } },
+  plum: { label: "Plum", t: { "ink":"#371F3E", "ground":"#FAF7FB", "wash":"#F7F4F8", "edge":"#CCC4CE", "name":"#745A7B", "muted":"#6A606C", "note":"#5C555D", "absent":"#746E75", "rule":"#F1ECF1", "on-ink":"#F7F2F8", "hover":"#FEFBFE", "hover-name":"#F8F1FA", "divider":"#E1D7E2", "underline":"rgba(116,90,123,.35)", "scrim":"rgba(55,31,62,.4)", "danger":"#a33a26" } },
+  oxblood: { label: "Oxblood", t: { "ink":"#461A1B", "ground":"#FDF6F6", "wash":"#FBF3F3", "edge":"#D3C3C2", "name":"#875655", "muted":"#715F5E", "note":"#625453", "absent":"#796D6C", "rule":"#F4ECEB", "on-ink":"#FCF1F0", "hover":"#FFFBFB", "hover-name":"#FEF0F0", "divider":"#E9D6D5", "underline":"rgba(135,86,85,.35)", "scrim":"rgba(70,26,27,.4)", "danger":"#a33a26" } },
+  chocolate: { label: "Chocolate", t: { "ink":"#3E2108", "ground":"#FCF7F3", "wash":"#FAF4F0", "edge":"#D2C4BB", "name":"#7E5C44", "muted":"#6E6158", "note":"#5F554F", "absent":"#776E68", "rule":"#F3EDE9", "on-ink":"#FBF2EC", "hover":"#FFFCFA", "hover-name":"#FCF2EB", "divider":"#E5D7CE", "underline":"rgba(126,92,68,.35)", "scrim":"rgba(62,33,8,.4)", "danger":"#a33a26" } },
+  charcoal: { label: "Charcoal", t: { "ink":"#22292F", "ground":"#F4F8FC", "wash":"#F1F6FA", "edge":"#BDC8D1", "name":"#59656E", "muted":"#57656F", "note":"#4F5860", "absent":"#687177", "rule":"#E9EFF3", "on-ink":"#EDF5FB", "hover":"#FAFDFF", "hover-name":"#EBF5FC", "divider":"#CFDCE6", "underline":"rgba(89,101,110,.35)", "scrim":"rgba(34,41,47,.4)", "danger":"#a33a26" } },
+  burnt: { label: "Burnt orange", t: { "ink":"#AA3704", "ground":"#FFF6F2", "wash":"#FDF3EE", "edge":"#D9C2B6", "name":"#7B231B", "muted":"#70605A", "note":"#615550", "absent":"#776E69", "rule":"#F3EDE9", "on-ink":"#FFF1E9", "hover":"#FFFBFA", "hover-name":"#FDF1EC", "divider":"#E6D7CF", "underline":"rgba(123,35,27,.35)", "scrim":"rgba(170,55,4,.4)", "danger":"#a33a26" } },
+};
+const THEME_KEYS = Object.keys(THEMES);
+
+// Writes a theme's tokens onto :root. Forest is also the stylesheet's default,
+// so an unknown or missing key simply leaves the page as authored.
+function applyTheme(key) {
+  const theme = THEMES[key] || THEMES.forest;
+  const root = document.documentElement;
+  for (const [token, value] of Object.entries(theme.t)) {
+    root.style.setProperty("--" + token, value);
+  }
+}
+
+const app = document.getElementById("app");
+const modal = document.getElementById("modal");
+let state = {};
+
+/* ---------- helpers ---------- */
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+async function api(path, opts = {}) {
+  const res = await fetch(BASE + "/api/" + path, {
+    method: opts.method || "GET",
+    headers: opts.body ? { "content-type": "application/json" } : {},
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  const ctype = res.headers.get("content-type") || "none";
+  const data = await res.json().catch(() => ({
+    error: ctype.includes("html")
+      ? `The API isn't responding at ${BASE}/api/ — got HTML (${res.status}) instead of JSON. The Pages Function probably isn't deployed.`
+      : `Unreadable response from the server (${res.status}, ${ctype}).`,
+  }));
+  if (!res.ok) {
+    const err = new Error(data.error || "Request failed.");
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}
+
+// 409/410 mean someone else changed this item first. Reload from the server
+// rather than leaving the guest looking at a page that no longer exists.
+async function recoverIfStale(err) {
+  if (err.status !== 409 && err.status !== 410 && err.status !== 404) return false;
+  closeSheet();
+  toast(err.message);
+  if (state.slug) await renderGuest(state.slug);
+  else if (state.event) await renderEditor(state.key, state.event.id);
+  return true;
+}
+
+function toast(msg) {
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2600);
+}
+
+function go(path) {
+  history.pushState({}, "", BASE + path);
+  render();
+}
+
+function claimed(item) {
+  return item.claims.reduce((n, c) => n + c.qty_claimed, 0);
+}
+
+let lastFocused = null;
+
+function closeSheet() {
+  if (!modal.innerHTML) return;
+  modal.innerHTML = "";
+  document.body.style.overflow = "";
+  if (lastFocused && document.contains(lastFocused)) lastFocused.focus();
+  lastFocused = null;
+}
+
+const FOCUSABLE = "button, input, textarea, select, a[href], [tabindex]:not([tabindex='-1'])";
+
+function openSheet(html, wire) {
+  lastFocused = document.activeElement;
+  modal.innerHTML = `<div class="scrim" data-scrim>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">${html}</div>
+  </div>`;
+  document.body.style.overflow = "hidden";
+  const heading = modal.querySelector("h2");
+  if (heading) heading.id = "sheet-title";
+  modal.querySelector("[data-scrim]").addEventListener("click", (e) => {
+    if (e.target.dataset.scrim !== undefined) closeSheet();
+  });
+  modal.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", closeSheet));
+  const first = modal.querySelector("input, textarea");
+  (first || modal.querySelector(FOCUSABLE))?.focus();
+  if (wire) wire(modal);
+}
+
+// Keep Tab inside an open sheet.
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") return closeSheet();
+  if (e.key !== "Tab" || !modal.innerHTML) return;
+  const items = [...modal.querySelectorAll(FOCUSABLE)].filter((el) => !el.disabled);
+  if (!items.length) return;
+  const first = items[0];
+  const last = items[items.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
+window.addEventListener("popstate", render);
+
+/* ---------- landing ---------- */
+function renderLanding() {
+  applyTheme("forest");
+  app.innerHTML = `
+    <div class="stack">
+      <h1 class="wordmark"><svg class="basket" viewBox="0 0 52 52" aria-hidden="true">
+  <!-- basket -->
+  <path d="M7 27h38l-3.6 16a4 4 0 0 1-3.9 3H14.5a4 4 0 0 1-3.9-3z"/>
+  <path d="M4 27h44"/>
+  <path d="M17 32.5 18.5 41M26 32.5V41M35 32.5 33.5 41"/>
+  <!-- baguette -->
+  <path d="M31 25.5 41.5 12a4.2 4.2 0 0 1 6.5 5.2L38 26"/>
+  <path d="M38.5 18.5 41 21M41.5 15 44 17.5"/>
+  <!-- apple -->
+  <circle cx="17" cy="18.5" r="7"/>
+  <path d="M17 11.5V8"/>
+  <path d="M17.5 9c2-2.2 4.4-2.4 6-1.6-.4 2.2-2.2 3.6-4.6 3.6"/>
+  <!-- greens -->
+  <path d="M26.5 26c-1.5-4 0-8 3.5-10.5"/>
+  <path d="M28 20.5c-2.6-.6-4.5.4-5.6 2.2"/>
+</svg><span>Vibring</span></h1>
+      <p class="slogan">Bring things. Together.</p>
+      <button class="btn" id="start">Start a list</button>
+      <p class="tiny muted">You'll get a private link that holds all your gatherings. Bookmark it —
+      it's the only way back in.</p>
+    </div>`;
+  document.getElementById("start").addEventListener("click", async (e) => {
+    e.target.disabled = true;
+    try {
+      const { host_key } = await api("hosts", { method: "POST", body: {} });
+      localStorage.setItem("potluck_host_key", host_key);
+      go("/h/" + host_key);
+    } catch (err) {
+      e.target.disabled = false;
+      toast(err.message);
+    }
+  });
+}
+
+/* ---------- host dashboard ---------- */
+async function renderDashboard(key) {
+  applyTheme("forest");
+  app.innerHTML = `<p class="muted">Loading your gatherings…</p>`;
+  let data;
+  try {
+    data = await api("hosts/" + key);
+  } catch (err) {
+    app.innerHTML = `<div class="stack"><h1>Link not found</h1><p class="muted">${esc(err.message)}</p>
+      <a class="btn ghost" href="/">Start a new list</a></div>`;
+    return;
+  }
+  localStorage.setItem("potluck_host_key", key);
+
+  const active = data.events.filter((e) => !e.archived);
+  const archived = data.events.filter((e) => e.archived);
+  const card = (ev) => `
+    <a class="card ${ev.archived ? "archived" : ""}" href="${BASE}/h/${key}/${ev.id}">
+      <h2>${esc(ev.title)}</h2>
+      ${ev.when_text ? `<p class="tiny muted" style="margin:.3rem 0 0">${esc(ev.when_text)}${ev.location ? " · " + esc(ev.location) : ""}</p>` : ""}
+      <p class="tiny muted" style="margin:.25rem 0 0">${ev.item_count} items · ${ev.qty_claimed} of ${ev.qty_needed} claimed</p>
+    </a>`;
+
+  app.innerHTML = `
+    <div class="bar-top">
+      <h1>Your gatherings</h1>
+      <button class="btn small" id="new">New</button>
+    </div>
+    <div class="share">
+      <strong class="tiny">Your private host link</strong>
+      <code>${location.origin}${BASE}/h/${esc(key)}</code>
+      <div class="row-btns">
+        <button class="btn small ghost" id="copykey">Copy host link</button>
+        <button class="btn small quiet" id="emailkey">Email it to me</button>
+      </div>
+    </div>
+    ${active.length ? active.map(card).join("") : `<div class="empty">Nothing planned yet. Make your first list.</div>`}
+    ${archived.length ? `<div class="grp">Archived</div>${archived.map(card).join("")}` : ""}
+    <p class="tiny muted" style="margin-top:1.5rem">${active.length} of 25 active gatherings.</p>
+    ${markFooter()}`;
+
+  document.getElementById("copykey").addEventListener("click", () => copy(location.origin + BASE + "/h/" + key, "Host link copied"));
+  document.getElementById("emailkey").addEventListener("click", () =>
+    mailLink(
+      `Your private Vibring host link — this is how you get back to your gatherings. ` +
+      `Keep it to yourself; anyone with it can edit your lists.\n\n` +
+      `${location.origin}${BASE}/h/${key}\n`
+    ));
+  document.getElementById("new").addEventListener("click", () => newEventSheet(key));
+}
+
+// Each tile is a working miniature — header bar, card, chef name — so the host
+// sees the relationship between the colours, not just a swatch. No visible
+// label: the colours speak. aria-label keeps it usable without sight.
+function themePicker(selected) {
+  const current = THEMES[selected] ? selected : "forest";
+  return `
+    <div class="field"><label>Colour</label>
+      <div class="picker" role="group" aria-label="Colour theme">
+        ${THEME_KEYS.map((k) => {
+          const t = THEMES[k].t;
+          const on = k === current;
+          return `
+            <button type="button" class="swatch" data-theme="${k}" aria-pressed="${on}"
+                    aria-label="${THEMES[k].label}"
+                    style="background:${t.ground};border-color:${on ? t.ink : t.edge}">
+              <span class="tick" style="background:${t.ink}">${ICON.tick}</span>
+              <span class="bar" style="background:${t.ink}">
+                <b>Potluck</b><i style="background:${t.ground};color:${t.ink}">3</i>
+              </span>
+              <span class="card" style="border-color:${t.ink};color:${t.ink}">
+                <em>Pie</em>
+                <u style="color:${t.name};text-decoration-color:${t.underline}">Nadia</u>
+              </span>
+            </button>`;
+        }).join("")}
+      </div>
+    </div>`;
+}
+
+function wireThemePicker(m) {
+  const tiles = [...m.querySelectorAll("[data-theme]")];
+  const set = (key) => {
+    m.dataset.theme = key;
+    tiles.forEach((tile) => {
+      const on = tile.dataset.theme === key;
+      tile.setAttribute("aria-pressed", String(on));
+      tile.style.borderColor = THEMES[tile.dataset.theme].t[on ? "ink" : "edge"];
+    });
+  };
+  const start = tiles.find((t) => t.getAttribute("aria-pressed") === "true");
+  set(start ? start.dataset.theme : "forest");
+  tiles.forEach((t) => t.addEventListener("click", () => set(t.dataset.theme)));
+}
+
+function newEventSheet(key) {
+  openSheet(`
+    <h2>New gathering</h2>
+    <div class="field"><label for="t">What is it?</label><input id="t" placeholder="Sunday potluck"></div>
+    <div class="field"><label for="w">When</label><input id="w" placeholder="Sunday, 2pm"></div>
+    <div class="field"><label for="l">Where</label><input id="l" placeholder="My place"></div>
+    <div class="field"><label for="d">Anything guests should know</label><textarea id="d" placeholder="Bring a chair if you have one."></textarea></div>
+    ${themePicker("forest")}
+    <div class="row-btns" style="margin-top:1rem">
+      <button class="btn" id="save">Create gathering</button>
+      <button class="btn quiet" data-close>Cancel</button>
+    </div>`, (m) => {
+    wireThemePicker(m);
+    m.querySelector("#save").addEventListener("click", async (e) => {
+      e.target.disabled = true;
+      try {
+        const { event } = await api(`hosts/${key}/events`, {
+          method: "POST",
+          body: {
+            title: m.querySelector("#t").value,
+            when_text: m.querySelector("#w").value,
+            location: m.querySelector("#l").value,
+            description: m.querySelector("#d").value,
+            theme: m.dataset.theme,
+          },
+        });
+        closeSheet();
+        go(`/h/${key}/${event.id}`);
+      } catch (err) {
+        e.target.disabled = false;
+        toast(err.message);
+      }
+    });
+  });
+}
+
+// Opens the person's own mail app with the link pre-filled. No sending service,
+// no API key — they press send themselves.
+function mailLink(body) {
+  const subject = encodeURIComponent("My Vibring Event Code");
+  location.href = `mailto:?subject=${subject}&body=${encodeURIComponent(body)}`;
+}
+
+function copy(text, msg) {
+  navigator.clipboard?.writeText(text).then(() => toast(msg), () => toast("Copy didn't work — select the link and copy it."));
+}
+
+/* ---------- host event editor ---------- */
+async function renderEditor(key, eventId) {
+  app.innerHTML = `<p class="muted">Loading…</p>`;
+  try {
+    const data = await api(`events/${eventId}?key=${key}`);
+    state = { key, event: data.event, items: data.items };
+  } catch (err) {
+    app.innerHTML = `<div class="stack"><h1>Not found</h1><p class="muted">${esc(err.message)}</p>
+      <a class="btn ghost" href="${BASE}/h/${esc(key)}">Back to your gatherings</a></div>`;
+    return;
+  }
+  paintEditor();
+}
+
+function paintEditor() {
+  const { key, event, items } = state;
+  applyTheme(event.theme);
+  const outstanding = items.filter((i) => claimed(i) < i.qty_needed).length;
+  const guestUrl = `${location.origin}${BASE}/e/${event.slug}`;
+
+  app.innerHTML = `
+    <div class="bar-top">
+      <a class="tiny" href="${BASE}/h/${key}">← All gatherings</a>
+      <button class="btn small quiet" id="edit-event">Edit details</button>
+    </div>
+    ${headBlock(event, items.length ? outstanding : null)}
+    ${notesBlock(items)}
+    <div class="share">
+      <strong class="tiny">Share this with guests</strong>
+      <code>${esc(guestUrl)}</code>
+      <div class="row-btns">
+        <button class="btn small ghost" id="copyguest">Copy guest link</button>
+        <button class="btn small quiet" id="emailme">Email me my host link</button>
+      </div>
+    </div>
+    <ul class="list">${items.filter((i) => claimed(i) < i.qty_needed).map(hostRow).join("")}</ul>
+    ${items.some((i) => claimed(i) >= i.qty_needed) ? `<div class="grp">Already covered</div>
+      <ul class="list">${items.filter((i) => claimed(i) >= i.qty_needed).map(hostRow).join("")}</ul>` : ""}
+    ${items.length ? "" : `<div class="empty">Nothing on the list yet. Add the first thing you need.</div>`}
+    <div class="row-btns" style="margin-top:1rem">
+      <button class="btn" id="add">Add item</button>
+      <button class="btn quiet" id="bulk">Paste a list</button>
+    </div>
+    <p class="tiny muted" style="margin-top:1.4rem">${items.length} of 100 items.
+      <button class="btn small danger" id="archive" style="margin-left:0.5rem">${event.archived ? "Unarchive" : "Archive"}</button>
+    </p>
+    ${markFooter()}`;
+
+  document.getElementById("copyguest").addEventListener("click", () => copy(guestUrl, "Guest link copied"));
+  const copynotes = document.getElementById("copynotes");
+  if (copynotes) copynotes.addEventListener("click", () => {
+    const lines = [];
+    for (const item of items) {
+      for (const c of item.claims) {
+        if (c.note_to_host) lines.push(`${c.guest_name} — ${c.dish_name || item.name}\n${c.note_to_host}`);
+      }
+    }
+    copy(`${event.title}\n\n` + lines.join("\n\n"), "Notes copied");
+  });
+  document.getElementById("emailme").addEventListener("click", () =>
+    mailLink(
+      `Your private Vibring host link — this is how you get back to your gatherings. ` +
+      `Keep it to yourself; anyone with it can edit your lists.\n\n` +
+      `${location.origin}${BASE}/h/${key}\n\n` +
+      `Guest link for "${event.title}" — this one is safe to share:\n\n` +
+      `${guestUrl}\n`
+    ));
+  document.getElementById("add").addEventListener("click", () => itemSheet(null));
+  document.getElementById("bulk").addEventListener("click", bulkSheet);
+  document.getElementById("edit-event").addEventListener("click", eventSheet);
+  document.getElementById("archive").addEventListener("click", async (e) => {
+    e.target.disabled = true;
+    try {
+      const { event: updated } = await api(`events/${event.id}?key=${key}`, { method: "PATCH", body: { archived: !event.archived } });
+      state.event = updated;
+      paintEditor();
+      toast(updated.archived ? "Archived" : "Back in your active list");
+    } catch (err) {
+      e.target.disabled = false;
+      toast(err.message);
+    }
+  });
+  app.querySelectorAll("[data-item]").forEach((card) =>
+    card.addEventListener("click", () => itemSheet(items.find((i) => i.id === card.dataset.item))));
+}
+
+// Private notes, gathered from every claim. Absent entirely when there are none.
+function notesBlock(items) {
+  const notes = [];
+  for (const item of items) {
+    for (const c of item.claims) {
+      if (c.note_to_host) notes.push({ who: c.guest_name, dish: c.dish_name || item.name, text: c.note_to_host });
+    }
+  }
+  if (!notes.length) return "";
+  return `
+    <div class="notes">
+      <div class="notes-top"><b>Notes for you</b><span class="notes-count">${notes.length}</span></div>
+      ${notes.map((n) => `
+        <div class="note-item">
+          <div class="note-from">${esc(n.who)} <span>&middot; ${esc(n.dish)}</span></div>
+          <div class="note-body">${esc(n.text)}</div>
+        </div>`).join("")}
+      <div class="notes-foot"><button class="btn small ghost" id="copynotes">Copy all notes</button></div>
+    </div>`;
+}
+
+function hostRow(item) {
+  const full = claimed(item) >= item.qty_needed;
+  return `
+    <li class="item ${full ? "done" : ""}" data-item="${item.id}" tabindex="0">
+      <div class="head-row"><span class="name">${esc(item.name)}</span>${countBox(item)}</div>
+      ${item.host_note ? `<div class="hostnote">${esc(item.host_note)}</div>` : ""}
+      ${item.claims.length
+        ? `<div class="sigs">${item.claims.map((c) => sigLine(c, false)).join("")}</div>`
+        : `<div class="absent">No chef yet</div>`}
+      <div class="tap"><span>Tap to edit</span>${ICON.chev}</div>
+    </li>`;
+}
+
+function eventSheet() {
+  const { key, event } = state;
+  openSheet(`
+    <h2>Gathering details</h2>
+    <div class="field"><label for="t">What is it?</label><input id="t" value="${esc(event.title)}"></div>
+    <div class="field"><label for="w">When</label><input id="w" value="${esc(event.when_text || "")}"></div>
+    <div class="field"><label for="l">Where</label><input id="l" value="${esc(event.location || "")}"></div>
+    <div class="field"><label for="d">Anything guests should know</label><textarea id="d">${esc(event.description || "")}</textarea></div>
+    ${themePicker(event.theme)}
+    <div class="row-btns" style="margin-top:1rem">
+      <button class="btn" id="save">Save changes</button>
+      <button class="btn quiet" data-close>Cancel</button>
+    </div>`, (m) => {
+    m.querySelector("#save").addEventListener("click", async (e) => {
+      e.target.disabled = true;
+      try {
+        const { event: updated } = await api(`events/${event.id}?key=${key}`, {
+          method: "PATCH",
+          body: {
+            title: m.querySelector("#t").value,
+            when_text: m.querySelector("#w").value,
+            location: m.querySelector("#l").value,
+            description: m.querySelector("#d").value,
+          },
+        });
+        state.event = updated;
+        closeSheet();
+        paintEditor();
+      } catch (err) { e.target.disabled = false; toast(err.message); }
+    });
+  });
+}
+
+function itemSheet(item) {
+  const { key, event } = state;
+  const editing = !!item;
+  openSheet(`
+    <h2>${editing ? "Edit item" : "Add item"}</h2>
+    <div class="pair">
+      <div class="field" style="flex:1"><label for="n">Item</label><input id="n" value="${esc(item?.name || "")}" placeholder="Green salad"></div>
+      <div class="field qty"><label for="q">How many</label><input id="q" type="number" min="1" max="99" value="${item?.qty_needed || 1}"></div>
+    </div>
+    <div class="field"><label for="hn">Note for guests</label>
+      <textarea id="hn" placeholder="Something dressed lightly — we already have a creamy one.">${esc(item?.host_note || "")}</textarea></div>
+    ${editing && item.claims.length ? `<p class="warn" style="margin-top:0.9rem">${item.claims.length} ${item.claims.length === 1 ? "person has" : "people have"} already signed up for this. Removing it removes their sign-up too.</p>` : ""}
+    <div class="row-btns" style="margin-top:1rem">
+      <button class="btn" id="save">${editing ? "Save changes" : "Add to list"}</button>
+      <button class="btn quiet" data-close>Cancel</button>
+      ${editing ? `<button class="btn danger" id="del">Remove item</button>` : ""}
+    </div>`, (m) => {
+    m.querySelector("#save").addEventListener("click", async (e) => {
+      const body = {
+        name: m.querySelector("#n").value,
+        qty_needed: m.querySelector("#q").value,
+        host_note: m.querySelector("#hn").value,
+      };
+      if (!body.name.trim()) return toast("Give the item a name.");
+      e.target.disabled = true;
+      try {
+        const data = editing
+          ? await api(`items/${item.id}?key=${key}`, { method: "PATCH", body })
+          : await api(`events/${event.id}/items?key=${key}`, { method: "POST", body });
+        state.items = data.items;
+        closeSheet();
+        paintEditor();
+      } catch (err) { e.target.disabled = false; toast(err.message); }
+    });
+    const del = m.querySelector("#del");
+    if (del) del.addEventListener("click", async (e) => {
+      if (!confirm(`Remove "${item.name}" from the list?`)) return;
+      e.target.disabled = true;
+      try {
+        const data = await api(`items/${item.id}?key=${key}`, { method: "DELETE" });
+        state.items = data.items;
+        closeSheet();
+        paintEditor();
+      } catch (err) {
+        e.target.disabled = false;
+        if (!(await recoverIfStale(err))) toast(err.message);
+      }
+    });
+  });
+}
+
+function bulkSheet() {
+  const { key, event } = state;
+  openSheet(`
+    <h2>Paste a list</h2>
+    <p class="tiny muted">One item per line. Add a number at the end for quantity: <em>Bread x2</em></p>
+    <div class="field"><textarea id="bulk" style="min-height:180px" placeholder="Green salad&#10;Bread x2&#10;Ice&#10;Folding chairs x4"></textarea></div>
+    <div class="row-btns" style="margin-top:1rem">
+      <button class="btn" id="save">Add items</button>
+      <button class="btn quiet" data-close>Cancel</button>
+    </div>`, (m) => {
+    m.querySelector("#save").addEventListener("click", async (e) => {
+      const lines = m.querySelector("#bulk").value.split("\n").map((l) => l.trim()).filter(Boolean);
+      if (!lines.length) return toast("Add at least one line.");
+      const items = lines.map((line) => {
+        const match = line.match(/^(.*?)[\s]*[x×]\s*(\d{1,2})$/i);
+        return match ? { name: match[1], qty_needed: match[2] } : { name: line, qty_needed: 1 };
+      });
+      e.target.disabled = true;
+      try {
+        const data = await api(`events/${event.id}/items?key=${key}`, { method: "POST", body: { items } });
+        state.items = data.items;
+        closeSheet();
+        paintEditor();
+        toast(`${items.length} items added`);
+      } catch (err) { e.target.disabled = false; toast(err.message); }
+    });
+  });
+}
+
+
+/* ---------- icons ---------- */
+const ICON = {
+  cal: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>`,
+  pin: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.7 7-11a7 7 0 1 0-14 0c0 5.3 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>`,
+  pencil: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M14.5 5.5 18.5 9.5"/></svg>`,
+  smile: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5c.9 1.2 2.1 1.8 3.5 1.8s2.6-.6 3.5-1.8"/><path d="M9 9.5h.01M15 9.5h.01"/></svg>`,
+  chev: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>`,
+  tick: `<svg viewBox="0 0 24 24" aria-hidden="true" stroke="#fff"><path d="M5 13l4 4L19 7"/></svg>`,
+};
+
+// The dark-green header block: title, details, and the one-line status.
+// chef name (the edit link) -> dish -> "Hot · Serves 8 · note"
+function sigLine(c, editable) {
+  const bits = [];
+  if (c.serve_temp) bits.push(c.serve_temp === "hot" ? "Hot" : "Cold");
+  if (c.serves) bits.push("Serves " + c.serves);
+  if (c.guest_note) bits.push(esc(c.guest_note));
+  const who = esc(c.guest_name) + (c.qty_claimed > 1 ? " &times;" + c.qty_claimed : "");
+  return `
+    <div class="sig">
+      ${editable
+        ? `<button class="claim" data-claim="${c.id}">${who}</button>`
+        : `<span class="claim">${who}</span>`}
+      ${c.dish_name ? `<span class="dish">${esc(c.dish_name)}</span>` : ""}
+      ${bits.length ? `<span class="meta-line">${bits.join(" &middot; ")}</span>` : ""}
+    </div>`;
+}
+
+// "3 needed" before anyone signs up, "3 more needed" once someone has
+function countBox(item) {
+  const got = claimed(item);
+  const left = item.qty_needed - got;
+  if (left <= 0) return `<span class="count covered">covered</span>`;
+  return `<span class="count ${got ? "" : "zero"}">${Math.min(left, 99)}${got ? " more" : ""} needed</span>`;
+}
+
+function headBlock(event, outstanding) {
+  const rows = [
+    event.when_text ? `<div class="row">${ICON.cal}<span>${esc(event.when_text)}</span></div>` : "",
+    event.location ? `<div class="row">${ICON.pin}<span>${esc(event.location)}</span></div>` : "",
+    event.description ? `<div class="row note">${ICON.pencil}<span>${esc(event.description)}</span></div>` : "",
+  ].join("");
+  const status = outstanding === null ? ""
+    : outstanding > 0
+      ? `<div class="summary"><span class="chip">${Math.min(outstanding, 99)}</span>
+         <span>dish${outstanding === 1 ? "" : "es"} need${outstanding === 1 ? "s" : ""} chefs</span></div>`
+      : `<div class="summary all">${ICON.smile}<span>All dishes covered</span></div>`;
+  return `<div class="head"><h1>${esc(event.title)}</h1>${rows}${status}</div>`;
+}
+
+/* ---------- guest view ---------- */
+async function renderGuest(slug) {
+  app.innerHTML = `<p class="muted">Loading the list…</p>`;
+  try {
+    const data = await api("public/" + slug);
+    state = { slug, event: data.event, items: data.items };
+  } catch (err) {
+    app.innerHTML = `<div class="stack"><h1>List not found</h1><p class="muted">${esc(err.message)}</p></div>`;
+    return;
+  }
+  paintGuest();
+}
+
+function paintGuest() {
+  const { event, items } = state;
+  applyTheme(event.theme);
+  const open = items.filter((i) => claimed(i) < i.qty_needed);
+  const full = items.filter((i) => claimed(i) >= i.qty_needed);
+
+  app.innerHTML = `
+    ${headBlock(event, items.length ? open.length : null)}
+    ${items.length ? `
+      <ul class="list">${open.map(guestRow).join("")}</ul>
+      ${full.length ? `<div class="grp">Already covered</div>
+        <ul class="list">${full.map(guestRow).join("")}</ul>` : ""}`
+    : `<div class="empty">The host hasn't added anything yet. Check back.</div>`}
+    ${markFooter()}`;
+
+  // the whole card is the tap target; tapping a name edits that sign-up instead
+  app.querySelectorAll("[data-item]").forEach((card) =>
+    card.addEventListener("click", (e) => {
+      const item = items.find((i) => i.id === card.dataset.item);
+      const claimEl = e.target.closest("[data-claim]");
+      if (claimEl) return claimSheet(item, item.claims.find((c) => c.id === claimEl.dataset.claim));
+      if (claimed(item) >= item.qty_needed) return;
+      signSheet(item);
+    }));
+}
+
+function guestRow(item) {
+  const full = claimed(item) >= item.qty_needed;
+  return `
+    <li class="item ${full ? "done" : ""}" data-item="${item.id}" tabindex="0">
+      <div class="head-row"><span class="name">${esc(item.name)}</span>${countBox(item)}</div>
+      ${item.host_note ? `<div class="hostnote">${esc(item.host_note)}</div>` : ""}
+      ${item.claims.length
+        ? `<div class="sigs">${item.claims.map((c) => sigLine(c, true)).join("")}</div>`
+        : `<div class="absent">No chef yet</div>`}
+      ${full ? "" : `<div class="tap"><span>Tap to sign up</span>${ICON.chev}</div>`}
+    </li>`;
+}
+
+function signSheet(item) {
+  const remaining = item.qty_needed - claimed(item);
+  const saved = localStorage.getItem("vibring_name") || "";
+  openSheet(`
+    <h2>${esc(item.name)}</h2>
+    ${item.host_note ? `<div class="hostnote" style="margin:0 0 .9rem">${esc(item.host_note)}</div>` : ""}
+    <div class="field"><label for="gn">Your name</label>
+      <input id="gn" maxlength="80" value="${esc(saved)}" placeholder="Dani"></div>
+    <div class="field"><label for="dn">What are you bringing?</label>
+      <input id="dn" maxlength="120" placeholder="Cornbread &amp; sage stuffing"></div>
+    ${tempField(null)}
+    <div class="pair">
+      <div class="field" style="flex:1"><label for="sv">Serves how many?</label>
+        <input id="sv" type="number" min="1" max="999" placeholder="8"></div>
+      ${remaining > 1
+        ? `<div class="field qty"><label for="gq">Dishes</label>
+             <input id="gq" type="number" min="1" max="${remaining}" value="1"></div>`
+        : ""}
+    </div>
+    <div class="field"><label for="note">Note for everyone <span class="sub">— shown on the list</span></label>
+      <textarea id="note" maxlength="500" placeholder="Needs 15 minutes in the oven"></textarea></div>
+    <div class="field"><label for="hn">Note for the host <span class="sub">— only the host sees this</span></label>
+      <textarea id="hn" maxlength="500" placeholder="Allergies, timing, anything else"></textarea></div>
+    <div class="row-btns" style="margin-top:1rem">
+      <button class="btn" id="save">Sign me up</button>
+      <button class="btn quiet" data-close>Cancel</button>
+    </div>`, (m) => {
+    wireTempField(m);
+    m.querySelector("#save").addEventListener("click", async (e) => {
+      const name = m.querySelector("#gn").value.trim();
+      if (!name) return toast("Add your name so the host knows who's bringing it.");
+      e.target.disabled = true;
+      try {
+        const qtyEl = m.querySelector("#gq");
+        const data = await api(`items/${item.id}/claims`, {
+          method: "POST",
+          body: {
+            guest_name: name,
+            qty_claimed: qtyEl ? qtyEl.value : 1,
+            dish_name: m.querySelector("#dn").value,
+            serve_temp: m.dataset.temp || null,
+            serves: m.querySelector("#sv").value,
+            guest_note: m.querySelector("#note").value,
+            note_to_host: m.querySelector("#hn").value,
+          },
+        });
+        localStorage.setItem("vibring_name", name);
+        state.items = data.items;
+        closeSheet();
+        paintGuest();
+        toast("You're down for " + item.name);
+      } catch (err) {
+        e.target.disabled = false;
+        if (!(await recoverIfStale(err))) toast(err.message);
+      }
+    });
+  });
+}
+
+function claimSheet(item, c) {
+  openSheet(`
+    <h2>${esc(item.name)}</h2>
+    <div class="field"><label for="gn">Name</label>
+      <input id="gn" maxlength="80" value="${esc(c.guest_name)}"></div>
+    <div class="field"><label for="dn">What are you bringing?</label>
+      <input id="dn" maxlength="120" value="${esc(c.dish_name || "")}"></div>
+    ${tempField(c.serve_temp)}
+    <div class="field"><label for="sv">Serves how many?</label>
+      <input id="sv" type="number" min="1" max="999" style="max-width:8rem" value="${c.serves || ""}"></div>
+    <div class="field"><label for="note">Note for everyone <span class="sub">— shown on the list</span></label>
+      <textarea id="note" maxlength="500">${esc(c.guest_note || "")}</textarea></div>
+    <div class="field"><label for="hn">Note for the host <span class="sub">— only the host sees this</span></label>
+      <textarea id="hn" maxlength="500" placeholder="Allergies, timing, anything else"></textarea></div>
+    <p class="tiny muted" style="margin-top:.5rem">A note to the host isn't shown here once sent.</p>
+    <div class="row-btns" style="margin-top:1rem">
+      <button class="btn" id="save">Save changes</button>
+      <button class="btn quiet" data-close>Cancel</button>
+      <button class="btn danger" id="del">Cancel sign-up</button>
+    </div>`, (m) => {
+    wireTempField(m);
+    m.querySelector("#save").addEventListener("click", async (e) => {
+      e.target.disabled = true;
+      try {
+        const body = {
+          guest_name: m.querySelector("#gn").value,
+          dish_name: m.querySelector("#dn").value,
+          serve_temp: m.dataset.temp || null,
+          serves: m.querySelector("#sv").value,
+          guest_note: m.querySelector("#note").value,
+        };
+        // only send a host note when one was typed, so saving an edit never
+        // wipes the note the chef left earlier
+        const hn = m.querySelector("#hn").value.trim();
+        if (hn) body.note_to_host = hn;
+        const data = await api(`claims/${c.id}`, { method: "PATCH", body });
+        state.items = data.items;
+        closeSheet();
+        paintGuest();
+      } catch (err) {
+        e.target.disabled = false;
+        if (!(await recoverIfStale(err))) toast(err.message);
+      }
+    });
+    m.querySelector("#del").addEventListener("click", async (e) => {
+      if (!confirm(`Remove ${c.guest_name} from "${item.name}"?`)) return;
+      e.target.disabled = true;
+      try {
+        const data = await api(`claims/${c.id}`, { method: "DELETE" });
+        state.items = data.items;
+        closeSheet();
+        paintGuest();
+        toast("Sign-up removed");
+      } catch (err) {
+        e.target.disabled = false;
+        if (!(await recoverIfStale(err))) toast(err.message);
+      }
+    });
+  });
+}
+
+// Two buttons, not a <select>: a binary choice doesn't deserve a full-screen
+// picker wheel on iOS.
+function tempField(current) {
+  return `
+    <div class="field"><label id="templabel">Hot or cold dish?</label>
+      <div class="choice" role="group" aria-labelledby="templabel">
+        <button type="button" data-temp="hot"  aria-pressed="${current === "hot"}">Hot</button>
+        <button type="button" data-temp="cold" aria-pressed="${current === "cold"}">Cold</button>
+      </div>
+    </div>`;
+}
+
+function wireTempField(m) {
+  const buttons = [...m.querySelectorAll("[data-temp]")];
+  const pressed = buttons.find((b) => b.getAttribute("aria-pressed") === "true");
+  if (pressed) m.dataset.temp = pressed.dataset.temp;
+  buttons.forEach((b) =>
+    b.addEventListener("click", () => {
+      const already = b.getAttribute("aria-pressed") === "true";
+      buttons.forEach((x) => x.setAttribute("aria-pressed", "false"));
+      if (already) {
+        delete m.dataset.temp;
+      } else {
+        b.setAttribute("aria-pressed", "true");
+        m.dataset.temp = b.dataset.temp;
+      }
+    }));
+}
+
+function markFooter() {
+  if (location.pathname.replace(BASE, "").replace(/\/+$/, "") === "") return "";
+  return `<span class="mark">vibring</span>`;
+}
+
+function render() {
+  closeSheet();
+  let path = location.pathname;
+  if (BASE && path.startsWith(BASE)) path = path.slice(BASE.length);
+  const parts = path.split("/").filter(Boolean).filter((seg) => seg !== "index.html");
+  // the landing page is anything that isn't a guest or host route, including
+  // /vibring/ and /vibring/index.html
+  const landing = !(parts[0] === "e" && parts[1]) && !(parts[0] === "h" && parts[1]);
+  document.body.classList.toggle("plain", landing);
+  if (parts[0] === "e" && parts[1]) return renderGuest(parts[1]);
+  if (parts[0] === "h" && parts[1] && parts[2]) return renderEditor(parts[1], parts[2]);
+  if (parts[0] === "h" && parts[1]) return renderDashboard(parts[1]);
+  return renderLanding();
+}
+
+document.addEventListener("click", (e) => {
+  const a = e.target.closest("a[href^='/']");
+  if (!a || a.target) return;
+  e.preventDefault();
+  const href = a.getAttribute("href");
+  go(BASE && href.startsWith(BASE) ? href.slice(BASE.length) : href);
+});
+
+render();
+</script>
+</body>
+</html>
