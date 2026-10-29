@@ -78,3 +78,18 @@ static files only and the API silently 404s.
 Schema changes go in the D1 console one statement at a time — the console
 flattens a multi-line paste onto one line, which turns `--` comments into a
 comment that swallows the rest.
+
+## Deployment record
+
+| | |
+|---|---|
+| Pages project | `vibringdos` |
+| Repo | `danisbuilding/vibringdos`, branch `main` |
+| Build output directory | `public` |
+| Build command | none |
+| D1 database | `vibringdos`, bound as `DB` |
+| Domains | `vibringdos.danisbuilding.cc`, `vibringdos.pages.dev` |
+
+Health check: `/api/health` returns `db_bound` and `db_query`. Both must be
+`true`. A binding added after a deployment does not reach it — redeploy, or push
+a commit, so a new deployment picks it up.
