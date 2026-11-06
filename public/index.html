@@ -73,7 +73,11 @@ body.plain{background:#fff}
 .imghint{position:absolute;left:0;right:0;bottom:0;background:var(--scrim);color:#fff;
   font-size:.7rem;font-weight:700;letter-spacing:.2px;padding:.3rem .5rem;text-align:center;
   pointer-events:none}
-.imgempty{color:var(--note);font-size:.84rem;font-weight:600;text-align:center;padding:0 1rem;line-height:1.4}
+.imgempty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.24rem;
+  color:var(--note);text-align:center;padding:0 .9rem;line-height:1.35}
+.imgempty b{font-size:.92rem;font-weight:800;color:var(--ink)}
+.imgempty span{font-size:.79rem;font-weight:600}
+.imgempty .fine{font-size:.72rem;font-weight:500;color:var(--absent)}
 .opt{font-weight:500;color:var(--note);text-transform:none;letter-spacing:0}
 
 /* ---- header block ---- */
@@ -874,6 +878,10 @@ const BANNER_H = 600;          // 2:1 — the page is 34rem wide, so this is ret
 const BANNER_Q = 0.82;
 const MIN_SRC_W = 1000;
 const MIN_SRC_H = 500;
+const MAX_PICK_MB = 25;        // what the browser is asked to decode, pre-crop
+const IDEAL = `${BANNER_W}×${BANNER_H} or ${BANNER_W * 2}×${BANNER_H * 2}`;
+const SPECS = `2:1 landscape &mdash; ${IDEAL}`;
+const LIMITS = `At least ${MIN_SRC_W}&times;${MIN_SRC_H} &middot; JPEG or PNG &middot; up to ${MAX_PICK_MB} MB`;
 
 // `shift` (0 = top band, 1 = bottom band) picks what survives the cover-crop of
 // a photo taller than 2:1. Horizontal is always centred: vertical is the axis
@@ -907,7 +915,10 @@ function readImage(file) {
     img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new Error("That file couldn't be read as an image. Try a JPEG or PNG."));
+      // Reached when the browser cannot decode the format at all. HEIC is the
+      // common case: iPhones save it, and desktop Chrome will not open it.
+      reject(new Error("This browser couldn't open that image. iPhone photos saved as HEIC " +
+        "often fail on a computer — re-save it as a JPEG or PNG."));
     };
     img.src = url;
   });
@@ -943,7 +954,13 @@ function bannerBlock(event) {
   return src ? `<img class="banner" src="${esc(src)}" alt="">` : "";
 }
 
-const NO_PHOTO = `<div class="imgempty">No photo &mdash; the page starts with the title.</div>`;
+// The empty box is the only place a host is deciding which photo to pick, so
+// the spec lives there rather than in fine print they have already scrolled past.
+const NO_PHOTO = `<div class="imgempty">
+  <b>Add a header photo</b>
+  <span>${SPECS}</span>
+  <span class="fine">${LIMITS}</span>
+</div>`;
 
 function imageField(event) {
   const src = bannerSrc(event);
@@ -958,8 +975,7 @@ function imageField(event) {
         <button class="btn small quiet" type="button" id="idrop"${src ? "" : " hidden"}>Remove</button>
       </div>
       <input id="ifile" type="file" accept="image/*" hidden>
-      <p class="tiny muted" style="margin-top:.45rem">Cropped to a ${BANNER_W}&times;${BANNER_H} banner.
-        Needs to be at least ${MIN_SRC_W}px wide.</p>
+      ${src ? `<p class="tiny muted" style="margin-top:.45rem">${SPECS} &middot; ${LIMITS}</p>` : ""}
     </div>`;
 }
 
@@ -998,6 +1014,9 @@ function wireImageField(m) {
     const f = file.files && file.files[0];
     file.value = "";                      // so re-picking the same file still fires
     if (!f) return;
+    if (f.size > MAX_PICK_MB * 1024 * 1024) {
+      return toast(`That file is ${(f.size / 1048576).toFixed(1)} MB. The limit is ${MAX_PICK_MB} MB.`);
+    }
     let img;
     try {
       img = await readImage(f);
