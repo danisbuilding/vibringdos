@@ -18,6 +18,10 @@ CREATE TABLE IF NOT EXISTS events (
   archived    INTEGER NOT NULL DEFAULT 0,
   -- Colour theme key; NULL = forest. See THEMES in index.html.
   theme       TEXT,
+  -- Public path of the header image, e.g. /img/<event id>/<token>.jpg.
+  -- NULL = no image, and the guest page top looks as it did before.
+  -- The R2 key is this string without the leading slash.
+  header_image TEXT,
   created_at  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_events_host ON events(host_id);

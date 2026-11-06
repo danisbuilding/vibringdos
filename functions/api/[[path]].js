@@ -4,6 +4,9 @@
 const MAX_ACTIVE_EVENTS = 25;
 const MAX_ITEMS = 100;
 const MAX_CLAIMS_PER_ITEM = 40;
+// The editor normalises every photo to 1200x600 JPEG before upload, which lands
+// well under this. The cap exists for callers that skip the editor.
+const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 // Anonymous guest writes are the abuse surface, so they get the tight budget.
 // Host writes are already gated by a secret key and need headroom for adding
 // items one at a time.
@@ -46,6 +49,17 @@ function serves(value) {
   if (!Number.isFinite(n) || n < 1) return null;
   return Math.min(999, n);
 }
+
+// Sniffed from the bytes, never from the content-type header, which the caller
+// controls. Only JPEG is accepted: the editor always encodes JPEG, so anything
+// else means the upload did not come from it.
+function isJpeg(bytes) {
+  return bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+}
+
+// The column stores the public path; the R2 key is the same string without the
+// leading slash. One rule, so upload, delete and serve cannot drift apart.
+const objectKeyFor = (path) => String(path || "").replace(/^\//, "");
 
 function qty(value, fallback = 1) {
   const n = parseInt(value, 10);
@@ -162,8 +176,12 @@ export async function onRequest(context) {
     }
   }
 
+  // The image upload carries raw bytes rather than JSON, so the body must not
+  // be consumed here — the route reads it as an ArrayBuffer instead.
+  const binary = segs[0] === "events" && segs[2] === "image" && method === "POST";
+
   let body = {};
-  if (method === "POST" || method === "PATCH") {
+  if (!binary && (method === "POST" || method === "PATCH")) {
     try {
       body = await request.json();
     } catch {
@@ -286,10 +304,49 @@ export async function onRequest(context) {
       }
 
       if (method === "DELETE") {
+        // Drop the stored image too, or deleting the gathering orphans it in
+        // the bucket with nothing left pointing at it.
+        if (owned.event.header_image && env.IMG) {
+          try { await env.IMG.delete(objectKeyFor(owned.event.header_image)); } catch {}
+        }
         await db.prepare("DELETE FROM claims WHERE item_id IN (SELECT id FROM items WHERE event_id = ?)").bind(owned.event.id).run();
         await db.prepare("DELETE FROM items WHERE event_id = ?").bind(owned.event.id).run();
         await db.prepare("DELETE FROM events WHERE id = ?").bind(owned.event.id).run();
         return json({ ok: true });
+      }
+    }
+
+    // ---- header image ---------------------------------------------------
+    if (segs[0] === "events" && segs[2] === "image" && segs.length === 3) {
+      const owned = await ownedEvent(db, segs[1], key);
+      if (!owned) return fail(404, "Gathering not found.");
+      if (!env.IMG) return fail(503, "Image storage isn't set up on this deployment yet.");
+      const e = owned.event;
+
+      if (method === "POST") {
+        const bytes = new Uint8Array(await request.arrayBuffer());
+        if (!bytes.length) return fail(400, "No image arrived. Try again.");
+        if (bytes.length > MAX_IMAGE_BYTES) return fail(413, "That image is too large.");
+        if (!isJpeg(bytes)) return fail(415, "That isn't a JPEG. Pick a photo and try again.");
+        const path = `/img/${e.id}/${token(10)}.jpg`;
+        await env.IMG.put(objectKeyFor(path), bytes, {
+          httpMetadata: { contentType: "image/jpeg" },
+        });
+        await db.prepare("UPDATE events SET header_image = ? WHERE id = ?").bind(path, e.id).run();
+        // The old object is unreachable the moment the column changes, so it
+        // goes now rather than accumulating on every replacement.
+        if (e.header_image && e.header_image !== path) {
+          try { await env.IMG.delete(objectKeyFor(e.header_image)); } catch {}
+        }
+        return json({ event: { ...e, header_image: path } });
+      }
+
+      if (method === "DELETE") {
+        if (e.header_image) {
+          try { await env.IMG.delete(objectKeyFor(e.header_image)); } catch {}
+        }
+        await db.prepare("UPDATE events SET header_image = NULL WHERE id = ?").bind(e.id).run();
+        return json({ event: { ...e, header_image: null } });
       }
     }
 
@@ -390,6 +447,7 @@ export async function onRequest(context) {
           description: event.description,
           archived: event.archived,
           theme: event.theme,
+          header_image: event.header_image,
         },
         items: await loadItems(db, event.id, "guest"),
       });

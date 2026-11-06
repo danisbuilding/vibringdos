@@ -19,6 +19,7 @@ Live at **vibringdos.danisbuilding.cc**
 | List shows | name + note | name + **dish** + "Hot · Serves 8 · note" |
 | Host gets | — | **a collated "Notes for you" block** with copy-all |
 | Colour | fixed forest green | **nine themes**, picked per event |
+| Top of the page | title block | optional **header photo** above it |
 
 ## Layout
 
@@ -28,8 +29,9 @@ public/fonts/              self-hosted Recursive variable woff2
 public/_redirects          /h/* and /e/* -> index.html
 public/_headers            CSP and security headers
 functions/api/[[path]].js  the whole API, one onRequest handler
-schema.sql                 D1 tables
-tests/api.test.mjs         30 integration tests
+functions/img/[[path]].js  serves header photos out of R2, outside /api
+schema.sql                 D1 and R2 shapes
+tests/api.test.mjs         41 integration tests
 ```
 
 No framework, no bundler, no dependencies.
@@ -41,7 +43,34 @@ node --test tests/api.test.mjs
 ```
 
 Needs Node 22+ (`node:sqlite`). No network, no wrangler, no database — the suite
-shims D1 over in-memory SQLite and applies the real `schema.sql`.
+shims D1 over in-memory SQLite and applies the real `schema.sql`, and shims R2
+over a `Map`.
+
+## Header photos
+
+Optional, one per gathering, and absent from the DOM entirely when unset — the
+page then starts with the title exactly as it did before.
+
+The editor normalises every photo to **1200x600 JPEG** on a canvas before it
+leaves the browser, so a stored banner is always the same shape and the page can
+reserve its box with `aspect-ratio` instead of jumping when the bytes land. A
+photo taller than 2:1 gets a drag control to choose which band survives the
+crop; centre-cropping a portrait is otherwise a coin flip on whether faces make
+it. Sources under 1000x500 are refused rather than upscaled into a soft banner.
+
+The server does not trust any of that. It re-sniffs the JPEG magic bytes (never
+the content-type header, which the caller sets), re-checks the 2 MB cap, and
+requires the host key. Uploads count against the host write throttle.
+
+Objects live in R2 under the same string the `events.header_image` column
+stores, minus the leading slash. Replacing a photo deletes the object it
+replaced; deleting a gathering deletes its object. Keys carry a random token, so
+any stored image is immutable and `/img/` serves it with a year-long immutable
+cache. `/img/` is a separate Function precisely so that the `Cache-Control:
+no-store` rule `_headers` puts on `/api/*` does not reach it.
+
+Because images are served from the app's own origin, `img-src 'self'` in the CSP
+already covers them. Nothing in `_headers` needed to open up.
 
 ## The one rule that matters
 
@@ -69,7 +98,10 @@ forest so the app keeps an identity of its own.
 
 Cloudflare Pages, connected to this repo. Framework preset **None**, build
 command **empty**, build output directory **`public`**. D1 database bound as
-**`DB`**.
+**`DB`**, R2 bucket bound as **`IMG`**.
+
+Without the R2 binding everything still works and photo uploads return a clear
+503 — the feature is additive, not load-bearing.
 
 `functions/` sits at the repo root, beside `public/` — not inside it. Pages only
 compiles Functions from a Git-connected project; a dashboard folder upload ships
@@ -88,6 +120,7 @@ comment that swallows the rest.
 | Build output directory | `public` |
 | Build command | none |
 | D1 database | `vibringdos`, bound as `DB` |
+| R2 bucket | `vibringdos-images`, bound as `IMG` |
 | Domains | `vibringdos.danisbuilding.cc`, `vibringdos.pages.dev` |
 
 Health check: `/api/health` returns `db_bound` and `db_query`. Both must be

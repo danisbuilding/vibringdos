@@ -5,8 +5,33 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import { onRequest } from "../functions/api/[[path]].js";
+import { onRequest as onImage } from "../functions/img/[[path]].js";
 
 const SCHEMA = readFileSync(new URL("../schema.sql", import.meta.url), "utf8");
+
+// Four bytes is enough to be a valid JPEG as far as the sniff is concerned;
+// the server never decodes the image.
+const JPEG = (n = 64) => {
+  const b = new Uint8Array(n);
+  b.set([0xff, 0xd8, 0xff, 0xe0]);
+  return b;
+};
+const NOT_JPEG = () => new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]); // PNG
+
+/* ---- minimal R2 shim -------------------------------------------------- */
+function fakeR2() {
+  const store = new Map();
+  return {
+    store,
+    async put(key, bytes) { store.set(key, Uint8Array.from(bytes)); },
+    async get(key) {
+      if (!store.has(key)) return null;
+      const bytes = store.get(key);
+      return { body: bytes, httpEtag: `"${key}"`, bytes };
+    },
+    async delete(key) { store.delete(key); },
+  };
+}
 
 /* ---- minimal D1 shim ------------------------------------------------- */
 function fakeD1() {
@@ -28,19 +53,43 @@ function fakeD1() {
 let ipCounter = 0;
 function client() {
   const DB = fakeD1();
+  const IMG = fakeR2();
   const ip = `10.0.0.${++ipCounter}`; // unique IP per client keeps throttle buckets separate
   // A 4th argument varies the caller's IP, for tests that need more writes than
   // one address is allowed in a minute.
-  return async (method, path, body, fromIp) => {
+  const call = async (method, path, body, fromIp) => {
     const req = new Request("https://x.test/api/" + path, {
       method,
       headers: { "cf-connecting-ip": fromIp || ip, "content-type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const segs = path.split("?")[0].split("/").filter(Boolean);
-    const res = await onRequest({ request: req, env: { DB }, params: { path: segs } });
+    const res = await onRequest({ request: req, env: { DB, IMG }, params: { path: segs } });
     return { status: res.status, body: await res.json() };
   };
+
+  // Image uploads carry raw bytes, not JSON.
+  call.bytes = async (path, bytes) => {
+    const req = new Request("https://x.test/api/" + path, {
+      method: "POST",
+      headers: { "cf-connecting-ip": ip, "content-type": "image/jpeg" },
+      body: bytes,
+    });
+    const segs = path.split("?")[0].split("/").filter(Boolean);
+    const res = await onRequest({ request: req, env: { DB, IMG }, params: { path: segs } });
+    return { status: res.status, body: await res.json() };
+  };
+
+  // The /img/ route is a separate Function, so it is exercised separately.
+  call.fetchImage = async (path) => {
+    const req = new Request("https://x.test" + path, { method: "GET" });
+    const segs = path.replace(/^\/img\//, "").split("/").filter(Boolean);
+    const res = await onImage({ request: req, env: { IMG }, params: { path: segs } });
+    return { status: res.status, cache: res.headers.get("cache-control"), type: res.headers.get("content-type") };
+  };
+
+  call.bucket = IMG;
+  return call;
 }
 
 async function seeded(call, qty_needed = 2) {
@@ -368,4 +417,133 @@ test("the theme reaches the guest page", async () => {
 test("unknown endpoints 404", async () => {
   const call = client();
   assert.equal((await call("GET", "nonsense")).status, 404);
+});
+
+/* ---- header image ----------------------------------------------------- */
+
+test("a header image uploads, reaches the guest page, and serves cacheably", async () => {
+  const call = client();
+  const { key, event } = await seeded(call);
+
+  const up = await call.bytes(`events/${event.id}/image?key=${key}`, JPEG());
+  assert.equal(up.status, 200);
+  assert.match(up.body.event.header_image, /^\/img\/[a-f0-9]+\/[a-z0-9]+\.jpg$/);
+
+  // Stored under the path minus its leading slash.
+  assert.equal(call.bucket.store.size, 1);
+  assert.ok(call.bucket.store.has(up.body.event.header_image.slice(1)));
+
+  const pub = await call("GET", `public/${event.slug}`);
+  assert.equal(pub.body.event.header_image, up.body.event.header_image);
+
+  const served = await call.fetchImage(up.body.event.header_image);
+  assert.equal(served.status, 200);
+  assert.equal(served.type, "image/jpeg");
+  assert.match(served.cache, /immutable/);
+});
+
+test("a gathering with no image reports none, and the guest page says so", async () => {
+  const call = client();
+  const { event } = await seeded(call);
+  const pub = await call("GET", `public/${event.slug}`);
+  assert.equal(pub.body.event.header_image, null);
+  assert.equal(call.bucket.store.size, 0);
+});
+
+test("the upload needs a valid host key", async () => {
+  const call = client();
+  const { event } = await seeded(call);
+  const bad = await call.bytes(`events/${event.id}/image?key=${"z".repeat(32)}`, JPEG());
+  assert.equal(bad.status, 404);
+  assert.equal(call.bucket.store.size, 0, "nothing may be written without a host key");
+});
+
+test("non-JPEG bytes are rejected on their content, not their header", async () => {
+  const call = client();
+  const { key, event } = await seeded(call);
+  const png = await call.bytes(`events/${event.id}/image?key=${key}`, NOT_JPEG());
+  assert.equal(png.status, 415);
+  assert.equal(call.bucket.store.size, 0);
+});
+
+test("an oversize upload is refused by the server, not just the editor", async () => {
+  const call = client();
+  const { key, event } = await seeded(call);
+  const big = await call.bytes(`events/${event.id}/image?key=${key}`, JPEG(2 * 1024 * 1024 + 1));
+  assert.equal(big.status, 413);
+  assert.equal(call.bucket.store.size, 0);
+});
+
+test("replacing an image removes the object it replaced", async () => {
+  const call = client();
+  const { key, event } = await seeded(call);
+  const first = await call.bytes(`events/${event.id}/image?key=${key}`, JPEG());
+  const second = await call.bytes(`events/${event.id}/image?key=${key}`, JPEG(80));
+  assert.notEqual(first.body.event.header_image, second.body.event.header_image);
+  assert.equal(call.bucket.store.size, 1, "the replaced object must not linger");
+  assert.ok(call.bucket.store.has(second.body.event.header_image.slice(1)));
+});
+
+test("removing the image clears the column and the object", async () => {
+  const call = client();
+  const { key, event } = await seeded(call);
+  await call.bytes(`events/${event.id}/image?key=${key}`, JPEG());
+  const gone = await call("DELETE", `events/${event.id}/image?key=${key}`);
+  assert.equal(gone.status, 200);
+  assert.equal(gone.body.event.header_image, null);
+  assert.equal(call.bucket.store.size, 0);
+  const pub = await call("GET", `public/${event.slug}`);
+  assert.equal(pub.body.event.header_image, null);
+});
+
+test("deleting a gathering does not orphan its image", async () => {
+  const call = client();
+  const { key, event } = await seeded(call);
+  await call.bytes(`events/${event.id}/image?key=${key}`, JPEG());
+  assert.equal(call.bucket.store.size, 1);
+  await call("DELETE", `events/${event.id}?key=${key}`);
+  assert.equal(call.bucket.store.size, 0);
+});
+
+test("editing other details leaves the image alone", async () => {
+  const call = client();
+  const { key, event } = await seeded(call);
+  const up = await call.bytes(`events/${event.id}/image?key=${key}`, JPEG());
+  const patched = await call("PATCH", `events/${event.id}?key=${key}`, { title: "Renamed", theme: "plum" });
+  assert.equal(patched.body.event.title, "Renamed");
+  assert.equal(patched.body.event.header_image, up.body.event.header_image);
+  assert.equal(call.bucket.store.size, 1);
+});
+
+test("the image route serves only the shape this app writes", async () => {
+  const call = client();
+  for (const path of ["/img/../secret.jpg", "/img/abc", "/img/abc/def.png", "/img/abc/d/e.jpg"]) {
+    assert.equal((await call.fetchImage(path)).status, 404, path);
+  }
+});
+
+test("uploads fail cleanly when no bucket is bound", async () => {
+  const DB = fakeD1();
+  const bare = async (method, path, body) => {
+    const req = new Request("https://x.test/api/" + path, {
+      method,
+      headers: { "cf-connecting-ip": "10.9.9.9", "content-type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const res = await onRequest({ request: req, env: { DB }, params: { path: path.split("?")[0].split("/").filter(Boolean) } });
+    return { status: res.status, body: await res.json() };
+  };
+  const { body: h } = await bare("POST", "hosts", {});
+  const { body: e } = await bare("POST", `hosts/${h.host_key}/events`, { title: "A" });
+  const req = new Request(`https://x.test/api/events/${e.event.id}/image?key=${h.host_key}`, {
+    method: "POST",
+    headers: { "cf-connecting-ip": "10.9.9.9", "content-type": "image/jpeg" },
+    body: JPEG(),
+  });
+  const res = await onRequest({
+    request: req,
+    env: { DB },
+    params: { path: ["events", e.event.id, "image"] },
+  });
+  assert.equal(res.status, 503);
 });

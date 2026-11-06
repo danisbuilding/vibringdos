@@ -54,6 +54,28 @@ body{
 .wrap{max-width:34rem;margin:0 auto;padding:1.5rem 1.15rem 4rem}
 body.plain{background:#fff}
 
+/* ---- header photo ----
+   Optional, and absent from the DOM entirely when unset. `aspect-ratio` holds
+   the box before the bytes arrive, so the list below never jumps. The ink
+   border ties it to the card language in all nine themes rather than letting a
+   bare rectangle float above a themed page. */
+.banner{display:block;width:100%;aspect-ratio:2/1;object-fit:cover;
+  border:3px solid var(--ink);background:var(--wash);margin:0 0 .85rem;
+  border-radius:20px 12px 18px 14px/14px 18px 12px 20px}
+
+/* the crop control in the editor */
+.imgwrap{position:relative;width:100%;aspect-ratio:2/1;overflow:hidden;background:var(--wash);
+  border:2.5px dashed var(--edge);border-radius:12px;display:flex;align-items:center;justify-content:center}
+.imgwrap.has{border-style:solid;border-color:var(--ink)}
+.imgwrap canvas,.imgwrap img{display:block;width:100%;height:100%;object-fit:cover}
+.imgwrap.grab{cursor:grab;touch-action:none}
+.imgwrap.grab:active{cursor:grabbing}
+.imghint{position:absolute;left:0;right:0;bottom:0;background:var(--scrim);color:#fff;
+  font-size:.7rem;font-weight:700;letter-spacing:.2px;padding:.3rem .5rem;text-align:center;
+  pointer-events:none}
+.imgempty{color:var(--note);font-size:.84rem;font-weight:600;text-align:center;padding:0 1rem;line-height:1.4}
+.opt{font-weight:500;color:var(--note);text-transform:none;letter-spacing:0}
+
 /* ---- header block ---- */
 .head{background:var(--ink);color:#fff;border-radius:20px 12px 18px 14px/14px 18px 12px 20px;
   padding:1.1rem 1.15rem .95rem;margin-bottom:1rem}
@@ -510,15 +532,18 @@ function newEventSheet(key) {
     <div class="field"><label for="w">When</label><input id="w" placeholder="Sunday, 2pm"></div>
     <div class="field"><label for="l">Where</label><input id="l" placeholder="My place"></div>
     <div class="field"><label for="d">Anything guests should know</label><textarea id="d" placeholder="Bring a chair if you have one."></textarea></div>
+    ${imageField({})}
     ${themePicker("forest")}
     <div class="row-btns" style="margin-top:1rem">
       <button class="btn" id="save">Create gathering</button>
       <button class="btn quiet" data-close>Cancel</button>
     </div>`, (m) => {
     wireThemePicker(m);
+    const photo = wireImageField(m);
     m.querySelector("#save").addEventListener("click", async (e) => {
       e.target.disabled = true;
       try {
+        const blob = await photo.pending();
         const { event } = await api(`hosts/${key}/events`, {
           method: "POST",
           body: {
@@ -529,6 +554,15 @@ function newEventSheet(key) {
             theme: m.dataset.theme,
           },
         });
+        // The image hangs off an event id, so it can only go up once the
+        // gathering exists. A photo failure must not discard the gathering.
+        if (blob) {
+          try {
+            await putBanner(event.id, key, blob);
+          } catch (err) {
+            toast("Gathering created, but the photo didn't upload: " + err.message);
+          }
+        }
         closeSheet();
         go(`/h/${key}/${event.id}`);
       } catch (err) {
@@ -575,6 +609,7 @@ function paintEditor() {
       <a class="tiny" href="${BASE}/h/${key}">← All gatherings</a>
       <button class="btn small quiet" id="edit-event">Edit details</button>
     </div>
+    ${bannerBlock(event)}
     ${headBlock(event, items.length ? outstanding : null)}
     ${notesBlock(items)}
     <div class="share">
@@ -678,23 +713,32 @@ function eventSheet() {
     <div class="field"><label for="w">When</label><input id="w" value="${esc(event.when_text || "")}"></div>
     <div class="field"><label for="l">Where</label><input id="l" value="${esc(event.location || "")}"></div>
     <div class="field"><label for="d">Anything guests should know</label><textarea id="d">${esc(event.description || "")}</textarea></div>
+    ${imageField(event)}
     ${themePicker(event.theme)}
     <div class="row-btns" style="margin-top:1rem">
       <button class="btn" id="save">Save changes</button>
       <button class="btn quiet" data-close>Cancel</button>
     </div>`, (m) => {
+    wireThemePicker(m);
+    const photo = wireImageField(m);
     m.querySelector("#save").addEventListener("click", async (e) => {
       e.target.disabled = true;
       try {
-        const { event: updated } = await api(`events/${event.id}?key=${key}`, {
+        // Encode before touching the network: a failure here should not leave
+        // the text saved and the photo silently dropped.
+        const blob = await photo.pending();
+        let { event: updated } = await api(`events/${event.id}?key=${key}`, {
           method: "PATCH",
           body: {
             title: m.querySelector("#t").value,
             when_text: m.querySelector("#w").value,
             location: m.querySelector("#l").value,
             description: m.querySelector("#d").value,
+            theme: m.dataset.theme,
           },
         });
+        if (blob) updated = await putBanner(event.id, key, blob);
+        else if (photo.removed()) updated = await dropBanner(event.id, key);
         state.event = updated;
         closeSheet();
         paintEditor();
@@ -820,6 +864,193 @@ function countBox(item) {
   return `<span class="count ${got ? "" : "zero"}">${Math.min(left, 99)}${got ? " more" : ""} needed</span>`;
 }
 
+/* ---------- header photo ----------
+   Every photo is normalised to exactly BANNER_W x BANNER_H JPEG in the browser
+   before it leaves, so a stored banner is always the same shape and the page can
+   reserve its box up front. The server re-sniffs the bytes and re-checks the
+   size anyway, because a client-side cap is trivially bypassed. */
+const BANNER_W = 1200;
+const BANNER_H = 600;          // 2:1 — the page is 34rem wide, so this is retina
+const BANNER_Q = 0.82;
+const MIN_SRC_W = 1000;
+const MIN_SRC_H = 500;
+
+// `shift` (0 = top band, 1 = bottom band) picks what survives the cover-crop of
+// a photo taller than 2:1. Horizontal is always centred: vertical is the axis
+// that decides whether faces make it.
+function cropToBanner(img, shift, target) {
+  const c = target || document.createElement("canvas");
+  c.width = BANNER_W;            // also clears, which is what a redraw wants
+  c.height = BANNER_H;
+  const ctx = c.getContext("2d");
+  const scale = Math.max(BANNER_W / img.naturalWidth, BANNER_H / img.naturalHeight);
+  const w = img.naturalWidth * scale;
+  const h = img.naturalHeight * scale;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, (BANNER_W - w) / 2, (BANNER_H - h) * shift, w, h);
+  return c;
+}
+
+const toJpeg = (canvas) =>
+  new Promise((resolve, reject) =>
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("That photo couldn't be encoded."))),
+      "image/jpeg",
+      BANNER_Q
+    ));
+
+function readImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("That file couldn't be read as an image. Try a JPEG or PNG."));
+    };
+    img.src = url;
+  });
+}
+
+// Raw bytes, so this goes around api() and its JSON body.
+async function putBanner(eventId, key, blob) {
+  const res = await fetch(`${BASE}/api/events/${eventId}/image?key=${encodeURIComponent(key)}`, {
+    method: "POST",
+    headers: { "content-type": "image/jpeg" },
+    body: blob,
+  });
+  const data = await res.json().catch(() => ({ error: `The photo upload failed (${res.status}).` }));
+  if (!res.ok) throw new Error(data.error || "The photo upload failed.");
+  return data.event;
+}
+
+async function dropBanner(eventId, key) {
+  const data = await api(`events/${eventId}/image?key=${encodeURIComponent(key)}`, { method: "DELETE" });
+  return data.event;
+}
+
+// Only a path this app itself wrote ever reaches an <img src>.
+const bannerSrc = (event) =>
+  /^\/img\/[a-f0-9]{1,32}\/[a-z0-9]{1,32}\.jpg$/.test((event && event.header_image) || "")
+    ? BASE + event.header_image
+    : null;
+
+// Decorative: the title says what the gathering is, and a host-picked photo has
+// no text alternative to offer.
+function bannerBlock(event) {
+  const src = bannerSrc(event);
+  return src ? `<img class="banner" src="${esc(src)}" alt="">` : "";
+}
+
+const NO_PHOTO = `<div class="imgempty">No photo &mdash; the page starts with the title.</div>`;
+
+function imageField(event) {
+  const src = bannerSrc(event);
+  return `
+    <div class="field">
+      <label>Header photo <span class="opt">&mdash; optional</span></label>
+      <div class="imgwrap${src ? " has" : ""}" id="iw">
+        ${src ? `<img src="${esc(src)}" alt="">` : NO_PHOTO}
+      </div>
+      <div class="row-btns" style="margin-top:.55rem">
+        <button class="btn small ghost" type="button" id="ipick">${src ? "Replace photo" : "Add photo"}</button>
+        <button class="btn small quiet" type="button" id="idrop"${src ? "" : " hidden"}>Remove</button>
+      </div>
+      <input id="ifile" type="file" accept="image/*" hidden>
+      <p class="tiny muted" style="margin-top:.45rem">Cropped to a ${BANNER_W}&times;${BANNER_H} banner.
+        Needs to be at least ${MIN_SRC_W}px wide.</p>
+    </div>`;
+}
+
+// Returns a controller the sheet's save handler asks for the result, so nothing
+// is encoded or uploaded until the host actually commits.
+function wireImageField(m) {
+  const wrap = m.querySelector("#iw");
+  const file = m.querySelector("#ifile");
+  const pick = m.querySelector("#ipick");
+  const drop = m.querySelector("#idrop");
+  let chosen = null;      // { img, shift, slack }
+  let canvas = null;
+  let removed = false;
+
+  const paint = () => {
+    if (!chosen) return;
+    if (!canvas) {
+      canvas = document.createElement("canvas");
+      wrap.innerHTML = "";
+      wrap.appendChild(canvas);
+      if (chosen.slack > 1) {
+        const hint = document.createElement("div");
+        hint.className = "imghint";
+        hint.textContent = "Drag to choose what shows";
+        wrap.appendChild(hint);
+      }
+      wrap.classList.add("has");
+      wrap.classList.toggle("grab", chosen.slack > 1);
+    }
+    cropToBanner(chosen.img, chosen.shift, canvas);
+  };
+
+  pick.addEventListener("click", () => file.click());
+
+  file.addEventListener("change", async () => {
+    const f = file.files && file.files[0];
+    file.value = "";                      // so re-picking the same file still fires
+    if (!f) return;
+    let img;
+    try {
+      img = await readImage(f);
+    } catch (err) {
+      return toast(err.message);
+    }
+    if (img.naturalWidth < MIN_SRC_W || img.naturalHeight < MIN_SRC_H) {
+      return toast(`That photo is ${img.naturalWidth}×${img.naturalHeight}. ` +
+        `It needs to be at least ${MIN_SRC_W}×${MIN_SRC_H}.`);
+    }
+    const scale = Math.max(BANNER_W / img.naturalWidth, BANNER_H / img.naturalHeight);
+    // Scaled pixels falling outside the frame vertically — nothing to slide if 0.
+    chosen = { img, shift: 0.5, slack: img.naturalHeight * scale - BANNER_H };
+    canvas = null;
+    removed = false;
+    drop.hidden = false;
+    pick.textContent = "Replace photo";
+    paint();
+  });
+
+  drop.addEventListener("click", () => {
+    chosen = null;
+    canvas = null;
+    removed = true;
+    drop.hidden = true;
+    pick.textContent = "Add photo";
+    wrap.classList.remove("has", "grab");
+    wrap.innerHTML = NO_PHOTO;
+  });
+
+  // Dragging down reveals the top of the photo.
+  let from = null;
+  wrap.addEventListener("pointerdown", (e) => {
+    if (!chosen || chosen.slack <= 1) return;
+    from = { y: e.clientY, shift: chosen.shift, h: wrap.clientHeight || BANNER_H };
+    wrap.setPointerCapture(e.pointerId);
+  });
+  wrap.addEventListener("pointermove", (e) => {
+    if (!from) return;
+    const framePx = ((e.clientY - from.y) * BANNER_H) / from.h;
+    chosen.shift = Math.min(1, Math.max(0, from.shift - framePx / chosen.slack));
+    paint();
+  });
+  const release = () => { from = null; };
+  wrap.addEventListener("pointerup", release);
+  wrap.addEventListener("pointercancel", release);
+
+  return {
+    removed: () => removed,
+    pending: () => (chosen ? toJpeg(cropToBanner(chosen.img, chosen.shift)) : Promise.resolve(null)),
+  };
+}
+
 function headBlock(event, outstanding) {
   const rows = [
     event.when_text ? `<div class="row">${ICON.cal}<span>${esc(event.when_text)}</span></div>` : "",
@@ -854,6 +1085,7 @@ function paintGuest() {
   const full = items.filter((i) => claimed(i) >= i.qty_needed);
 
   app.innerHTML = `
+    ${bannerBlock(event)}
     ${headBlock(event, items.length ? open.length : null)}
     ${items.length ? `
       <ul class="list">${open.map(guestRow).join("")}</ul>
